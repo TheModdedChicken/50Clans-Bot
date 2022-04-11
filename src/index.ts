@@ -10,7 +10,7 @@ import { REST } from '@discordjs/rest'
 import { ITeam, Team } from './classes'
 import ISlashCommand from './interfaces/SlashCommand'
 import responseTime from 'response-time'
-import { TeamModel } from './utility'
+import { GuildModel, TeamModel } from './utility'
 
 /* Pre Processes */
 dotenv.config();
@@ -98,7 +98,17 @@ client.once('ready', (data) => {
 	setInterval(() => { if (!InteractionsPaused) RefreshCache() }, 120000)
 });
 
-client.on('guildMemberAdd', () => RefreshCache());
+
+client.on('guildCreate', async (guild) => await new GuildModel({ id: guild.id }).save())
+client.on("guildDelete", async (guild) => await GuildModel.findOneAndDelete({ id: guild.id }).exec())
+client.on('guildMemberAdd', async (member) => {
+	const guild = await GuildModel.findOne({ id: member.guild.id }).exec();
+	if (!guild || !guild.autoassign) return;
+	const role = await member.guild.roles.fetch(guild.autoassign);
+	if (!role) return;
+	await member.roles.add(role)
+	RefreshCache()
+});
 client.on('roleDelete', async (data) => {
 	const team: ITeam = await TeamModel.findOneAndDelete({ role: data.id }).exec();
 	if (!team) return;

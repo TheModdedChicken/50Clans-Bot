@@ -2,7 +2,8 @@ import { Guild, GuildMember } from "discord.js";
 
 export namespace Members {
   export function IsAdmin (member: GuildMember) {
-    return (member.id === "337371143881228288" || member.permissions.has("MANAGE_ROLES"));
+    const dev_ids: string[] = process.env.DEV_IDS?.split(',') || []
+    return (dev_ids.includes(member.id) || member.permissions.has("MANAGE_ROLES"));
   }
 
   export async function toMemberAsync (guild: Guild, member: string): Promise<GuildMember | undefined> {

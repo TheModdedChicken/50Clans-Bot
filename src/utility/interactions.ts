@@ -5,9 +5,10 @@ import { TeamModel } from "./schemas";
 
 export function ParseOptions (interaction: CommandInteraction | AutocompleteInteraction): ICommandOptions {
   const mainOption = interaction.options.data
-  const subOption = interaction.options.data[0].options
-  // @ts-ignore
-  const microOption = interaction.options.data[0].options[0].options
+  var subOption;
+  if (mainOption && mainOption[0]) subOption = mainOption[0].options
+  var microOption;
+  if (subOption && subOption[0]) microOption = subOption[0].options;
 
   return {
     // @ts-ignore

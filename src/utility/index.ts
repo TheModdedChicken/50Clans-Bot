@@ -1,5 +1,5 @@
 import { TeamNameRegex, TeamPrefixRegex, HexValueRegex } from "./regex";
-import { TeamModel, TeamSchema } from "./schemas";
+import { TeamModel, TeamSchema, GuildModel, GuildSchema } from "./schemas";
 import { Members } from "./members";
 import { ParseOptions, ParseSub, GetAllTeams, FindOption, FindOptionValue } from "./interactions";
 
@@ -10,6 +10,8 @@ export {
 
   TeamModel,
   TeamSchema,
+  GuildModel,
+  GuildSchema,
 
   Members,
 

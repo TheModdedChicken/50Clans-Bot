@@ -12,3 +12,10 @@ export const TeamSchema = new Schema({
 })
 
 export const TeamModel = mongoose.model('Team', TeamSchema)
+
+export const GuildSchema = new Schema({
+  id: String,
+  autoassign: String
+})
+
+export const GuildModel = mongoose.model('Guild', GuildSchema)
