@@ -29,7 +29,7 @@ if (!guild_id) throw new Error("Cannot find guild id");
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MEMBERS] });
 const Commands = new Collection<string, ISlashCommand>();
 
-const port = process.env.PORT || 5449;
+const port = process.env.PORT || 6558;
 const app = express();
 
 var InteractionsPaused = true;
