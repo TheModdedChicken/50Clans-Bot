@@ -32,7 +32,7 @@ const Commands = new Collection<string, ISlashCommand>();
 const port = process.env.PORT || 6558;
 const app = express();
 
-var InteractionsPaused = true;
+var InteractionsPaused = false;
 
 
 /* Command Loader */
