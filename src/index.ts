@@ -79,12 +79,9 @@ app.all('/ping', (req, res) => {
 app.post('/interactions', (req, res) => {
 	const auth = req.headers['authorization'];
 	if (!auth) return res.status(401).send("Bad Token")
-	const toggle = req.headers['X-Interaction-Toggle'];
-	if (!toggle) return res.status(415).send("Bad Toggle")
-
-	if (toggle === "true") InteractionsPaused = true;
-	else InteractionsPaused = false;
-
+	const toggle = req.body.toggle;
+	if (toggle === undefined || toggle === null) return res.status(415).send("Bad Toggle")
+	InteractionsPaused = toggle;
   return res.status(200).send(`Interactions Paused: ${InteractionsPaused}`)
 })
 
