@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { AutocompleteInteraction, ButtonInteraction, CommandInteraction, MessageEmbed } from "discord.js";
+import { AutocompleteInteraction, ButtonInteraction, CommandInteraction, GuildMember, MessageEmbed } from "discord.js";
 import { ITeam, Team } from "../classes";
-import { ParseSub, ParseOptions, TeamNameRegex, TeamPrefixRegex, HexValueRegex, TeamModel, MemberIDsToMembers, MembersToDisplayNames, IsAdmin, MemberIDToMember, GetAllTeams, FindOption, FindOptionValue, MemberIDToMemberCache } from "../utility";
+import { ParseSub, ParseOptions, TeamNameRegex, TeamPrefixRegex, HexValueRegex, TeamModel, Members, GetAllTeams, FindOption, FindOptionValue } from "../utility";
 
 export default {
   data: new SlashCommandBuilder().setName('team').setDescription("Create, Modify, and Delete Teams")
@@ -69,7 +69,7 @@ export default {
       if (!opts.subOption) return await interaction.reply({embeds: [new MessageEmbed().setDescription(`An error occurred and some options weren't available`).setColor("#ff7675")], ephemeral: true})
       if (sub.subCommand === "create") {
         const MemberCheck: ITeam = await TeamModel.findOne({ members: member.id }).exec()
-        if (MemberCheck && !IsAdmin(member)) return await interaction.reply({embeds: [
+        if (MemberCheck && !Members.IsAdmin(member)) return await interaction.reply({embeds: [
           new MessageEmbed().setDescription(`You're already on team "${MemberCheck.name}". Please leave it to create a new one.`).setColor("#ff7675")
         ], ephemeral: true})
 
@@ -114,7 +114,7 @@ export default {
             { name: "Prefix", value: newTeam.getPrefix },
             { name: "Color", value: newTeam.getColor },
             { name: "Leader", value: member.displayName },
-            { name: "Members", value: MembersToDisplayNames(await MemberIDsToMembers(guild, newTeam.getMembers)).toString().replace(",", "\n") }
+            { name: "Members", value: Members.toDisplayNames(Members.toMembers(guild, newTeam.getMembers)).toString().replace(",", "\n") }
           ])
         ], ephemeral: true})
       } else if (sub.subCommand === "delete") {
@@ -124,7 +124,7 @@ export default {
           new MessageEmbed().setDescription(`No team with the prefix "${TeamPrefix}" exists.`).setColor("#ff7675")
         ], ephemeral: true})
 
-        if (team.leader !== member.id && !IsAdmin(member)) return await interaction.reply({embeds: [
+        if (team.leader !== member.id && !Members.IsAdmin(member)) return await interaction.reply({embeds: [
           new MessageEmbed().setDescription(`You are not the leader of this team.`).setColor("#ff7675")
         ], ephemeral: true})
 
@@ -141,16 +141,16 @@ export default {
           if (!team) return await interaction.reply({embeds: [new MessageEmbed().setDescription(`No team with the prefix ${TeamPrefix} exists.`).setColor("#ff7675")], ephemeral: true})
           const out = new MessageEmbed().setTitle(`${team.name} # ${team.prefix}`).setColor("#55efc4").addFields([
             { name: "Role", value: `<@&${team.role}>` },
-            { name: "Leader", value: (await MemberIDToMember(guild, team.leader)).displayName },
-            { name: "Members", value: MembersToDisplayNames(await MemberIDsToMembers(guild, team.members)).toString().split(',').join('\n') }
+            { name: "Leader", value: (Members.toMember(guild, team.leader) as GuildMember).displayName || "Error" },
+            { name: "Members", value: Members.toDisplayNames(Members.toMembers(guild, team.members)).toString().split(',').join('\n') }
           ])
           interaction.reply({ embeds:[out] })
         } else {
           const teams: ITeam[] = await TeamModel.find().exec();
           const out = new MessageEmbed().setTitle(`All Teams`).setColor("#55efc4")
           for (const team of teams) out.addField(
-            `${team.name} # ${team.prefix}`, 
-            MembersToDisplayNames(await MemberIDsToMembers(guild, team.members)).toString().split(',').join('\n')
+            `${team.name} # ${team.prefix}`,
+            Members.toDisplayNames(Members.toMembers(guild, team.members)).toString().split(',').join('\n')
           );
           interaction.reply({ embeds:[out] })
         }
@@ -162,7 +162,7 @@ export default {
     } else if (sub.subGroup === "member") {
       if (!opts.microOption) return await interaction.reply({embeds: [new MessageEmbed().setDescription(`An error occurred and some options weren't available`).setColor("#ff7675")], ephemeral: true})
       if (sub.subCommand === "add") {
-        if (!IsAdmin(member)) return await interaction.reply({embeds: [
+        if (!Members.IsAdmin(member)) return await interaction.reply({embeds: [
           new MessageEmbed().setDescription(`You do not have permission to use this command`).setColor("#ff7675")
         ], ephemeral: true})
 
@@ -196,7 +196,7 @@ export default {
           new MessageEmbed().setDescription(`No team with the prefix ${TeamPrefix} exists.`).setColor("#ff7675")
         ], ephemeral: true});
 
-        if (member.id !== team.leader && !IsAdmin(member)) return await interaction.reply({embeds: [
+        if (member.id !== team.leader && !Members.IsAdmin(member)) return await interaction.reply({embeds: [
           new MessageEmbed().setDescription(`You are not the leader of team "${team.name}"`).setColor("#ff7675")
         ], ephemeral: true})
 
@@ -218,6 +218,15 @@ export default {
         return await interaction.reply({embeds: [
           new MessageEmbed().setDescription(`Revoked <@${UserID}>'s membership to team "${team.name}".`).setColor("#55efc4")
         ], ephemeral: true})
+      } else if (sub.subCommand === "invite") {
+        /*var TeamPrefix = FindOptionValue<string>(opts.microOption, "team")
+        var UserID = FindOptionValue<string>(opts.microOption, "user")
+
+        if (!UserID) return await interaction.reply({embeds: [new MessageEmbed().setDescription(`Invalid User`).setColor("#ff7675")], ephemeral: true})
+        const team: ITeam = await TeamModel.findOne({ prefix: TeamPrefix }).exec()
+        if (!team) return await interaction.reply({embeds: [
+          new MessageEmbed().setDescription(`No team exists with the prefix "${TeamPrefix}"`).setColor("#ff7675")
+        ], ephemeral: true})*/
       }
     }
   },
@@ -250,7 +259,7 @@ export default {
           const team: ITeam = await TeamModel.findOne({ prefix }).exec();
           const out: {name: string, value: string}[] = [];
           for (const MemberID of team.members) {
-            const member = await MemberIDToMemberCache(guild, MemberID);
+            const member = Members.toMember(guild, MemberID);
             if (member) out.push({name: `${member.displayName}${team.leader === member.id ? " (Leader)" : ""}`, value: member.id})
           }
           return interaction.respond(out);

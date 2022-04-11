@@ -5,11 +5,12 @@ import express from 'express'
 import cors from 'cors'
 import mongoose from 'mongoose'
 import { Client, Collection, Intents, MessageEmbed } from 'discord.js'
-const { Routes } = require('discord-api-types/v9');
+import { Routes } from 'discord-api-types/v9'
 import { REST } from '@discordjs/rest'
-import { ITeam } from './classes'
+import { ITeam, Team } from './classes'
 import ISlashCommand from './interfaces/SlashCommand'
 import responseTime from 'response-time'
+import { TeamModel } from './utility'
 
 /* Pre Processes */
 dotenv.config();
@@ -18,18 +19,20 @@ mongoose.connect(process.env.DB_URL || "")
 
 /* Main Vars */
 const commands_folder = path.join(__dirname, "./commands");
+const bot_token = process.env.BOT_TOKEN;
+if (!bot_token) throw new Error("Cannot find bot token");
 const client_id = process.env.CLIENT_ID;
 if (!client_id) throw new Error("Cannot find client id");
 const guild_id = process.env.GUILD_ID;
 if (!guild_id) throw new Error("Cannot find guild id");
-const bot_token = process.env.BOT_TOKEN;
-if (!bot_token) throw new Error("Cannot find bot token");
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MEMBERS] });
 const Commands = new Collection<string, ISlashCommand>();
 
 const port = process.env.PORT || 5449;
 const app = express();
+
+var InteractionsPaused = true;
 
 
 /* Command Loader */
@@ -52,7 +55,9 @@ const rest = new REST({ version: '9' }).setToken(bot_token);
 		}
 
 		await rest.put(
-			Routes.applicationGuildCommands(client_id, guild_id),
+			guild_id ? 
+				Routes.applicationGuildCommands(client_id, guild_id) :
+				Routes.applicationCommands(client_id),
 			{ body: jsonCommands },
 		);
 
@@ -62,7 +67,6 @@ const rest = new REST({ version: '9' }).setToken(bot_token);
 	}
 })();
 
-var lastTime = "";
 
 /* Server Process */
 app.use(cors({ origin: '*' }))
@@ -70,6 +74,18 @@ app.use(express.json())
 
 app.all('/ping', (req, res) => {
   return res.status(200).send(`Pong!`)
+})
+
+app.post('/interactions', (req, res) => {
+	const auth = req.headers['authorization'];
+	if (!auth) return res.status(401).send("Bad Token")
+	const toggle = req.headers['X-Interaction-Toggle'];
+	if (!toggle) return res.status(415).send("Bad Toggle")
+
+	if (toggle === "true") InteractionsPaused = true;
+	else InteractionsPaused = false;
+
+  return res.status(200).send(`Interactions Paused: ${InteractionsPaused}`)
 })
 
 app.listen(port, () => {
@@ -81,17 +97,20 @@ app.listen(port, () => {
 client.once('ready', (data) => {
 	console.log(`Logged in as "${data.user.tag}"`);
 
-	const refreshCache = async () => {
-		const guild = await data.guilds.fetch(guild_id);
-		guild.roles.fetch()
-		guild.members.fetch()
-	}
+	RefreshCache()
+	setInterval(() => { if (!InteractionsPaused) RefreshCache() }, 120000)
+});
 
-	refreshCache()
-	setInterval(refreshCache, 120000)
+client.on('guildMemberAdd', () => RefreshCache());
+client.on('roleDelete', async (data) => {
+	const team: ITeam = await TeamModel.findOneAndDelete({ role: data.id }).exec();
+	if (!team) return;
+	else RefreshCache();
 });
 
 client.on('interactionCreate', async interaction => {
+	if (InteractionsPaused) return;
+
 	if (interaction.isCommand()) {
 		const command: ISlashCommand | undefined = Commands.get(interaction.commandName)
 		if (!command) return await interaction.reply({embeds: [
@@ -126,3 +145,11 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(bot_token);
+
+
+/* Functions */
+const RefreshCache = async () => {
+	const guild = await client.guilds.fetch(guild_id);
+	guild.roles.fetch()
+	guild.members.fetch()
+}
