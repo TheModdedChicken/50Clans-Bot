@@ -56,7 +56,7 @@ export default {
       )
     ),
   
-  async run(interaction: CommandInteraction) {
+  async command(interaction: CommandInteraction) {
     const guild = interaction.guild
     if (!guild) return await interaction.reply({embeds: [new MessageEmbed().setDescription("Couldn't find guild").setColor("#ff7675")], ephemeral: true})
     if (!interaction.member) return await interaction.reply({embeds: [new MessageEmbed().setDescription("Couldn't find member").setColor("#ff7675")], ephemeral: true})

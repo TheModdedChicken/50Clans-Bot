@@ -11,11 +11,13 @@ import { ITeam, Team } from './classes'
 import ISlashCommand from './interfaces/SlashCommand'
 import responseTime from 'response-time'
 import { GuildModel, TeamModel } from './utility'
+import { SlashCommandHandler } from 'tmc-djs-util'
 
 /* Pre Processes */
 dotenv.config();
 mongoose.connect(process.env.DB_URL || "")
 
+//
 
 /* Main Vars */
 const commands_folder = path.join(__dirname, "./commands");
@@ -27,45 +29,11 @@ const guild_id = process.env.GUILD_ID;
 if (!guild_id) throw new Error("Cannot find guild id");
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MEMBERS] });
-const Commands = new Collection<string, ISlashCommand>();
 
 const port = process.env.PORT || 6558;
 const app = express();
 
 var InteractionsPaused = false;
-
-
-/* Command Loader */
-const commandFiles = fs.readdirSync(commands_folder).filter(file => file.endsWith(__filename.endsWith(".ts") ? '.ts' : '.js'));
-
-for (const file of commandFiles) {
-	const command = require(path.join(commands_folder, file)).default;
-	Commands.set(command.data.name, command);
-}
-
-const rest = new REST({ version: '9' }).setToken(bot_token);
-
-(async () => {
-	try {
-		console.log('Started refreshing application (/) commands.');
-
-		const jsonCommands = [];
-		for (const [id, command] of Commands) {
-			jsonCommands.push(command.data.toJSON());
-		}
-
-		await rest.put(
-			guild_id ? 
-				Routes.applicationGuildCommands(client_id, guild_id) :
-				Routes.applicationCommands(client_id),
-			{ body: jsonCommands },
-		);
-
-		console.log('Successfully reloaded application (/) commands.');
-	} catch (error) {
-		console.error(error);
-	}
-})();
 
 
 /* Server Process */
@@ -115,41 +83,23 @@ client.on('roleDelete', async (data) => {
 	else RefreshCache();
 });
 
-client.on('interactionCreate', async interaction => {
-	if (InteractionsPaused) return;
+const slashCommandHandler = new SlashCommandHandler(client, client_id, bot_token, {
+	directories: [commands_folder],
+	guild_id,
+	refresh: true
+})
 
-	if (interaction.isCommand()) {
-		const command: ISlashCommand | undefined = Commands.get(interaction.commandName)
-		if (!command) return await interaction.reply({embeds: [
-			new MessageEmbed().setDescription(`There was an error while executing this command!`).setColor("#ff7675")
-		], ephemeral: true})
-	
-		try {
-			await command.run(interaction);
-		} catch (err) {
-			console.error(err);
-			await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-		}
-	} else if (interaction.isAutocomplete()) {
-		const command: ISlashCommand | undefined = Commands.get(interaction.commandName)
-		if (!command) return;
-	
-		try {
-			if (command.autocomplete) await command.autocomplete(interaction);
-		} catch (err) {
-			console.error(err);
-		}
-	} else if (interaction.isButton()) {
-		const command: ISlashCommand | undefined = Commands.get(interaction.customId.split(";")[0])
-		if (!command) return;
-	
-		try {
-			if (command.button) await command.button(interaction);
-		} catch (err) {
-			console.error(err);
-		}
-	}
-});
+slashCommandHandler.middleware((i, stop) => {
+	if (InteractionsPaused) stop();
+})
+
+slashCommandHandler.on('interactionFailed', async (interaction, err) => {
+	if (!interaction.isApplicationCommand()) return;
+	await interaction.reply({embeds: [
+		new MessageEmbed().setDescription(`There was an error while executing this command!`).setColor("#ff7675")
+	], ephemeral: true})
+	console.error(err);
+})
 
 client.login(bot_token);
 

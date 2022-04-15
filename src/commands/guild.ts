@@ -8,7 +8,7 @@ export default {
       .addRoleOption(option => option.setName('role').setDescription("Role to give to new members (Leave blank to disable auto-assign)").setRequired(false)) 
     ),
   
-  async run(interaction: CommandInteraction) {
+  async command(interaction: CommandInteraction) {
     const guild = interaction.guild
     if (!guild) return await interaction.reply({embeds: [new MessageEmbed().setDescription("Couldn't find guild").setColor("#ff7675")], ephemeral: true})
     if (!interaction.member) return await interaction.reply({embeds: [new MessageEmbed().setDescription("Couldn't find member").setColor("#ff7675")], ephemeral: true})

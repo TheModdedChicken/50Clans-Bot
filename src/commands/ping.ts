@@ -4,7 +4,7 @@ import { AutocompleteInteraction, ButtonInteraction, CommandInteraction } from "
 export default {
   data: new SlashCommandBuilder().setName('ping').setDescription("Check the bot's ping"),
   
-  async run(interaction: CommandInteraction) {
+  async command(interaction: CommandInteraction) {
     const time = new Date().getTime() - interaction.createdAt.getTime();
     interaction.reply(`Pong! (${time}ms)`);
   },
